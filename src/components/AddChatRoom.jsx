@@ -1,12 +1,32 @@
 import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 function AddChatRoom() {
   const [roomName, setRoomName] = useState("");
+  const queryClient = useQueryClient();
+
+  const createRoomMutation = useMutation({
+    mutationFn: async (newRoom) => {
+      const response = await fetch("/api/rooms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newRoom),
+      });
+      if (!response.ok) {
+        throw new Error("Failed to create room");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries("chatRooms");
+    },
+  });
 
   const handleAddRoom = () => {
     if (roomName.trim()) {
-      // Add room to the list (mock implementation)
-      console.log("New room added:", roomName);
+      createRoomMutation.mutate({ name: roomName });
       setRoomName("");
     }
   };
@@ -20,9 +40,16 @@ function AddChatRoom() {
         placeholder="New room name"
         className="border rounded px-2 py-1 mr-2"
       />
-      <button onClick={handleAddRoom} className="bg-blue-500 text-white px-2 py-1 rounded">
-        Add Room
+      <button
+        onClick={handleAddRoom}
+        className="bg-blue-500 text-white px-2 py-1 rounded"
+        disabled={createRoomMutation.isLoading}
+      >
+        {createRoomMutation.isLoading ? "Creating..." : "Add Room"}
       </button>
+      {createRoomMutation.isError && (
+        <p className="text-red-500 mt-2">Error: {createRoomMutation.error.message}</p>
+      )}
     </div>
   );
 }
